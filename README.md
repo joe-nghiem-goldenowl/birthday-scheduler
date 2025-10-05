@@ -15,6 +15,11 @@ A simple Node.js + TypeScript + Prisma project that automatically sends birthday
 
 ### Clone repository
 
+```
+git clone git@github.com:joe-nghiem-goldenowl/birthday-scheduler.git
+cd birthday-scheduler
+```
+
 ### Install dependencies
 You need to install `Yarn` before running this command.
 ```

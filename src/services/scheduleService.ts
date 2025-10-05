@@ -45,7 +45,6 @@ function calculateNextBirthdayAt9AM(birthday: string, timezone: string): Date {
 }
 
 export async function rescheduleBirthdayMessage(user: any) {
-  // Xoá message cũ chưa gửi
   await prisma.scheduledMessage.deleteMany({
     where: {
       userId: user.id,
@@ -53,15 +52,12 @@ export async function rescheduleBirthdayMessage(user: any) {
     },
   });
 
-  // Tính ngày sinh năm nay
   const birthdayStr = format(user.birthday, 'yyyy-MM-dd');
   const [year, month, day] = birthdayStr.split('-').map(Number);
   const currentYear = new Date().getFullYear();
 
-  // Tạo Date 9:00 sáng ở timezone location của user
   const birthdayThisYearLocal = new Date(currentYear, month! - 1, day, 9, 0, 0);
 
-  // Chuyển sang UTC để lưu vào DB
   const birthdayUTC = toZonedTime(birthdayThisYearLocal, user.location);
 
   await prisma.scheduledMessage.create({

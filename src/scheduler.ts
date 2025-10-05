@@ -44,12 +44,12 @@ cron.schedule('0 * * * *', async () => {
           },
         });
 
-        console.log(`✅ Sent birthday message to ${fullName}`);
+        console.log(`Sent birthday message to ${fullName}`);
       } catch (err) {
-        console.error(`❌ Failed to send message for user ${fullName}:`, err);
+        console.error(`Failed to send message for user ${fullName}:`, err);
       }
     }
   } catch (err) {
-    console.error('❌ Scheduler error:', err);
+    console.error('Scheduler error:', err);
   }
 });

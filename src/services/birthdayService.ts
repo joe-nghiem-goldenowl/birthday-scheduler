@@ -8,9 +8,9 @@ export async function sendBirthdayMessage(fullName: string) {
     const message = `Hey, ${fullName}, it's your birthday`;
 
     const res = await axios.post(webhookUrl, { message });
-    console.log(`🎉 Sent birthday message to ${fullName}`);
+    console.log(`Sent birthday message to ${fullName}`);
     return res.data;
   } catch (err) {
-    console.error(`❌ Failed to send birthday message to ${fullName}`, err);
+    console.error(`Failed to send birthday message to ${fullName}`, err);
   }
 }

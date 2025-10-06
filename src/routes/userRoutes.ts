@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { createUser, deleteUser, updateUser } from '../services/userService';
+import { isValidTimeZone } from '../utils/validation';
 
 const router = Router();
 
@@ -14,6 +15,10 @@ router.post('/', async (req, res) => {
     const birthdayDate = new Date(birthday);
     if (isNaN(birthdayDate.getTime())) {
       return res.status(400).json({ error: 'Invalid birthday format' });
+    }
+
+    if (!isValidTimeZone(location)) {
+      return res.status(400).json({ error: 'Invalid timezone format' });
     }
 
     const newUser = await createUser({ first_name, last_name, birthday, location });

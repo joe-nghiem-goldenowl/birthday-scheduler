@@ -90,9 +90,3 @@ The current system can handle a small number of users, but as the user base grow
 - Use `AWS Lambda` + `EventBridge` instead of cron jobs in the code. This makes the system easier to scale and helps prevent overload as the number of users grows.
 
 - Use the `SQS` message queue to handle sending messages to webhooks instead of sending them directly. This prevents overload in cases so many users have the birthday on the same day. SQS service also provides built-in retry and DLQ (dead letter queue) mechanisms if webhook delivery fails.
-
-- Add the index to the `scheduled_messages` table to speed up queries.
-
-- Query the `scheduled_messages` table in batches to avoid overloading the cron job when the number of records in the table is very large.
-
-- Add a periodic cleanup job for the `scheduled_messages` table. Records with the sent column set to True can be moved to another table. This reduces the size of the `scheduled_messages` table, while old records can still be retained for future use.

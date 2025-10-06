@@ -2,6 +2,7 @@ import { scheduleBirthdayMessage, rescheduleBirthdayMessage } from './scheduleSe
 import { User, UserUpdate } from '../types/user';
 import { format } from 'date-fns';
 import { prisma } from '../prismaClient';
+import { Prisma } from '@prisma/client';
 
 export async function createUser(user: User): Promise<User> {
   const createdUser = await prisma.user.create({
@@ -43,7 +44,7 @@ export async function updateUser(id: number, updates: UserUpdate): Promise<UserU
 
   if (!currentUser) return null;
 
-  const dataToUpdate: any = {
+  const dataToUpdate: Prisma.UserUpdateInput = {
     firstName: updates.first_name ?? currentUser.firstName,
     lastName: updates.last_name ?? currentUser.lastName,
     location: updates.location ?? currentUser.location,

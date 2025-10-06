@@ -2,10 +2,10 @@ import cron from 'node-cron';
 import { sendBirthdayMessage } from './services/birthdayService';
 import { prisma } from './prismaClient';
 
-const sentToday = new Set<string>();
+const BATCH_SIZE = 500;
 
 cron.schedule('0 * * * *', async () => {
-  console.log('⏰ Scheduler tick:', new Date().toISOString());
+  console.log('[Scheduler] Processing due birthday messages: ', new Date().toISOString());
 
   try {
     const dueMessages = await prisma.scheduledMessage.findMany({
@@ -15,6 +15,7 @@ cron.schedule('0 * * * *', async () => {
           lte: new Date(),
         },
       },
+      take: BATCH_SIZE,
       include: {
         user: true,
       },
@@ -52,4 +53,21 @@ cron.schedule('0 * * * *', async () => {
   } catch (err) {
     console.error('Scheduler error:', err);
   }
+});
+
+cron.schedule('0 0 * * 0', async () => {
+  console.log('[Cleanup Job] Starting cleanup of old sent messages');
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 30);
+
+  const deleted = await prisma.scheduledMessage.deleteMany({
+    where: {
+      sent: true,
+      scheduledTime: {
+        lt: cutoff,
+      },
+    },
+  });
+
+  console.log(`Cleanup job: deleted ${deleted.count} old sent messages`);
 });

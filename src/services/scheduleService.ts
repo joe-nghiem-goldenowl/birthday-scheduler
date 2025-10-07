@@ -1,21 +1,8 @@
 import { toZonedTime } from 'date-fns-tz';
 import { format } from 'date-fns';
 import { prisma } from '../prismaClient';
-
-export async function scheduleBirthdayMessage(
-  userId: number,
-  birthday: string,      // "YYYY-MM-DD"
-  location: string       // timezone string (e.g. "America/New_York")
-): Promise<void> {
-  const nextBirthday = calculateNextBirthdayAt9AM(birthday, location);
-
-  await prisma.scheduledMessage.create({
-    data: {
-      userId,
-      scheduledTime: nextBirthday,
-    },
-  });
-}
+import { eventQueue } from '../queues/eventQueue';
+import { User } from '@prisma/client';
 
 function calculateNextBirthdayAt9AM(birthday: string, timezone: string): Date {
   const now = new Date();
@@ -44,7 +31,39 @@ function calculateNextBirthdayAt9AM(birthday: string, timezone: string): Date {
   return birthdayThisYearUTC;
 }
 
-export async function rescheduleBirthdayMessage(user: any) {
+export async function scheduleBirthdayJob(user: User) {
+  const birthdayStr = format(user.birthday, 'yyyy-MM-dd');
+  const nextBirthday = calculateNextBirthdayAt9AM(birthdayStr, user.location);
+
+  await prisma.scheduledMessage.create({
+    data: {
+      userId: user.id,
+      scheduledTime: nextBirthday,
+    },
+  });
+
+  const delay = nextBirthday.getTime() - Date.now();
+  await eventQueue.add(
+    {
+      userId: user.id,
+      fullName: `${user.firstName} ${user.lastName}`,
+      eventType: 'birthday',
+    },
+    {
+      delay,
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 1000 },
+      removeOnComplete: true,
+      removeOnFail: false,
+      jobId: `birthday-${user.id}`,
+    }
+  );
+
+  console.log(`[Bull] Scheduled birthday job for ${user.firstName} at ${nextBirthday.toISOString()}`);
+}
+
+
+export async function rescheduleBirthdayMessage(user: User) {
   await prisma.scheduledMessage.deleteMany({
     where: {
       userId: user.id,

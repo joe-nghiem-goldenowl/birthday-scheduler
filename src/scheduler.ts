@@ -1,73 +1,54 @@
-import cron from 'node-cron';
-import { sendBirthdayMessage } from './services/birthdayService';
 import { prisma } from './prismaClient';
+import { eventQueue } from './queues/eventQueue';
+import { cleanupQueue } from './queues/cleanupQueue';
 
-const BATCH_SIZE = 500;
-
-cron.schedule('0 * * * *', async () => {
-  console.log('[Scheduler] Processing due birthday messages: ', new Date().toISOString());
-
+export async function recoverScheduledJobs() {
   try {
-    const dueMessages = await prisma.scheduledMessage.findMany({
+    const unsent = await prisma.scheduledMessage.findMany({
       where: {
         sent: false,
-        scheduledTime: {
-          lte: new Date(),
-        },
+        scheduledTime: { gt: new Date() },
       },
-      take: BATCH_SIZE,
       include: {
         user: true,
       },
     });
 
-    for (const msg of dueMessages) {
-      const fullName = `${msg.user.firstName} ${msg.user.lastName}`;
-
-      try {
-        await sendBirthdayMessage(fullName);
-
-        await prisma.scheduledMessage.update({
-          where: { id: msg.id },
-          data: {
-            sent: true,
-            sentAt: new Date(),
-          },
-        });
-
-        const nextYear = new Date(msg.scheduledTime);
-        nextYear.setFullYear(nextYear.getFullYear() + 1);
-
-        await prisma.scheduledMessage.create({
-          data: {
-            userId: msg.userId,
-            scheduledTime: nextYear,
-          },
-        });
-
-        console.log(`Sent birthday message to ${fullName}`);
-      } catch (err) {
-        console.error(`Failed to send message for user ${fullName}:`, err);
-      }
+    for (const msg of unsent) {
+      const delay = msg.scheduledTime.getTime() - Date.now();
+      await eventQueue.add(
+        {
+          userId: msg.userId,
+          fullName: `${msg.user.firstName} ${msg.user.lastName}`,
+          eventType: 'birthday',
+        },
+        {
+          delay,
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 1000 },
+          removeOnComplete: true,
+          removeOnFail: false,
+        }
+      );
     }
+
+    console.log(`Recovered ${unsent.length} scheduled jobs from DB`);
   } catch (err) {
-    console.error('Scheduler error:', err);
+    console.error('Failed to recover scheduled jobs:', err);
   }
-});
+}
 
-cron.schedule('0 0 * * 0', async () => {
-  console.log('[Cleanup Job] Starting cleanup of old sent messages');
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 30);
+export function scheduleCleanupJob() {
+  cleanupQueue.add(
+    'weekly-cleanup',
+    undefined,
+    {
+      repeat: { cron: '0 0 * * 0' },
+      removeOnComplete: true,
+      removeOnFail: false,
+      jobId: 'weekly-cleanup',
+    }
+  );
 
-  const deleted = await prisma.scheduledMessage.deleteMany({
-    where: {
-      sent: true,
-      scheduledTime: {
-        lt: cutoff,
-      },
-    },
-  });
-
-  console.log(`Cleanup job: deleted ${deleted.count} old sent messages`);
-});
+  console.log('Scheduled weekly cleanup job with Bull');
+}

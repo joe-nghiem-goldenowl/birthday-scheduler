@@ -71,14 +71,6 @@ export async function updateUser(id: number, updates: UserUpdate): Promise<UserU
 
   if (birthdayChanged || locationChanged) {
     await rescheduleBirthdayMessage(updatedUser);
-
-    const jobId = `birthday-${updatedUser.id}`;
-    const oldJob = await eventQueue.getJob(jobId);
-    if (oldJob) {
-      await oldJob.remove();
-      console.log(`Removed old birthday job for user ${updatedUser.id}`);
-    }
-
     await scheduleBirthdayJob(updatedUser);
   }
   const birthdayStr = format(updatedUser.birthday, 'yyyy-MM-dd');

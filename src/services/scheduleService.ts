@@ -3,33 +3,7 @@ import { format } from 'date-fns';
 import { prisma } from '../prismaClient';
 import { eventQueue } from '../queues/eventQueue';
 import { User } from '@prisma/client';
-
-function calculateNextBirthdayAt9AM(birthday: string, timezone: string): Date {
-  const now = new Date();
-  const [year, month, day] = birthday.split('-').map(Number);
-  const currentYear = now.getUTCFullYear();
-
-  const birthdayThisYearLocal = new Date(
-    currentYear,
-    month! - 1,
-    day,
-    9, 0, 0
-  );
-
-  let birthdayThisYearUTC = toZonedTime(birthdayThisYearLocal, timezone);
-
-  if (birthdayThisYearUTC < now) {
-    const birthdayNextYearLocal = new Date(
-      currentYear + 1,
-      month! - 1,
-      day,
-      9, 0, 0
-    );
-    birthdayThisYearUTC = toZonedTime(birthdayNextYearLocal, timezone);
-  }
-
-  return birthdayThisYearUTC;
-}
+import { calculateNextBirthdayAt9AM } from '../utils/dateUtils';
 
 export async function scheduleBirthdayJob(user: User) {
   const birthdayStr = format(user.birthday, 'yyyy-MM-dd');
@@ -42,24 +16,33 @@ export async function scheduleBirthdayJob(user: User) {
     },
   });
 
-  const delay = nextBirthday.getTime() - Date.now();
-  await eventQueue.add(
-    {
-      userId: user.id,
-      fullName: `${user.firstName} ${user.lastName}`,
-      eventType: 'birthday',
-    },
-    {
-      delay,
-      attempts: 3,
-      backoff: { type: 'exponential', delay: 1000 },
-      removeOnComplete: true,
-      removeOnFail: false,
-      jobId: `birthday-${user.id}`,
-    }
-  );
+  const now = new Date();
+  const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
 
-  console.log(`[Bull] Scheduled birthday job for ${user.firstName} at ${nextBirthday.toISOString()}`);
+  if (nextBirthday >= now && nextBirthday <= oneHourLater) {
+    const delay = nextBirthday.getTime() - Date.now();
+    await eventQueue.add(
+      {
+        userId: user.id,
+        fullName: `${user.firstName} ${user.lastName}`,
+        eventType: 'birthday',
+        birthday: birthdayStr,
+        location: user.location,
+      },
+      {
+        delay,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 1000 },
+        removeOnComplete: true,
+        removeOnFail: false,
+        jobId: `birthday-${user.id}`,
+      }
+    );
+
+    console.log(`[Bull] Enqueued birthday job for ${user.firstName} at ${nextBirthday.toISOString()}`);
+  } else {
+    console.log(`[Bull] Birthday job for ${user.firstName} scheduled in DB, will enqueue later via polling`);
+  }
 }
 
 
@@ -67,23 +50,14 @@ export async function rescheduleBirthdayMessage(user: User) {
   await prisma.scheduledMessage.deleteMany({
     where: {
       userId: user.id,
-      sent: false,
+      status: { in: ['PENDING', 'FAILED'] },
     },
   });
 
-  const birthdayStr = format(user.birthday, 'yyyy-MM-dd');
-  const [year, month, day] = birthdayStr.split('-').map(Number);
-  const currentYear = new Date().getFullYear();
-
-  const birthdayThisYearLocal = new Date(currentYear, month! - 1, day, 9, 0, 0);
-
-  const birthdayUTC = toZonedTime(birthdayThisYearLocal, user.location);
-
-  await prisma.scheduledMessage.create({
-    data: {
-      userId: user.id,
-      scheduledTime: birthdayUTC
-    },
-  });
-
+  const jobId = `birthday-${user.id}`;
+  const oldJob = await eventQueue.getJob(jobId);
+  if (oldJob) {
+    await oldJob.remove();
+    console.log(`Removed old birthday job for user ${user.id}`);
+  }
 }

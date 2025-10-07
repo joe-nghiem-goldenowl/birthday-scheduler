@@ -9,7 +9,7 @@ cleanupQueue.process(async () => {
 
   const deleted = await prisma.scheduledMessage.deleteMany({
     where: {
-      sent: true,
+      status: 'SENT',
       scheduledTime: {
         lt: cutoff,
       },

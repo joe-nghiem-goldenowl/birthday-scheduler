@@ -8,7 +8,8 @@ import { ExpressAdapter } from '@bull-board/express';
 import { BullAdapter } from '@bull-board/api/bullAdapter';
 import { createBullBoard } from '@bull-board/api';
 import { eventQueue } from './queues/eventQueue';
-import { recoverScheduledJobs, scheduleCleanupJob } from './scheduler';
+import { recoverScheduledJobs, scheduleCleanupJob, scheduleHourlySchedulerJob } from './scheduler';
+import { registerFailedHandler } from './jobs/failedHandlerWorkerJob';
 
 const PORT = Number(process.env.PORT ?? 3000);
 
@@ -34,7 +35,9 @@ app.use(limiter);
 app.use('/users', userRoutes);
 app.use('/admin/queues', serverAdapter.getRouter());
 
+scheduleHourlySchedulerJob();
 scheduleCleanupJob();
+registerFailedHandler();
 
 app.listen(PORT, async () => {
   console.log(`Server is running at http://localhost:${PORT}`);

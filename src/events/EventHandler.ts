@@ -1,3 +1,3 @@
 export interface EventHandler {
-  handle(user: { fullName: string }): Promise<void>;
+  handle(user: { userId: number, fullName: string, birthday: string, location: string }): Promise<void>;
 }

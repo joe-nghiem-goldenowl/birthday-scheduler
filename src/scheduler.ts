@@ -28,6 +28,7 @@ export async function recoverScheduledJobs() {
           backoff: { type: 'exponential', delay: 1000 },
           removeOnComplete: true,
           removeOnFail: false,
+          jobId: `birthday-${msg.user.id}`,
         }
       );
     }

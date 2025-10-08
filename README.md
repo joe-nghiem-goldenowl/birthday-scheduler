@@ -16,8 +16,13 @@ A simple Node.js + TypeScript + Prisma project that automatically sends birthday
 
 We use the `Bull` library to create jobs that send messages at exactly 9 AM. These jobs are stored in Redis, which ensures that the system can scale to multiple instances in the future.
 
-When a user is created, the time to send the message is calculated and a job is created. When a user is deleted or updated, the corresponding job is adjusted accordingly. We also store the jobs that need to be sent in the database. This ensures that if the system goes down, we do not lose any jobs that need to be sent. When the system comes back online, we query the database to retrieve unsent jobs and send them.
+When a user is created or updated, the time to send the message is calculated based on the user’s timezone and stored in the database. We have a cron job that runs every hour to check whether any messages are scheduled to be sent exactly one hour later. If there’s a match, we create a job to send the message in one hour.
 
+Additionally, right after creating or updating a user, we also check whether the scheduled send time matches one hour from now. If it does, we create a job to send the message in one hour.
+
+In the case where the server goes down, once it restarts, we run a job to check for any messages that were not sent during the downtime by querying the messages stored in the database.
+
+We also have a job that checks for messages that have already been retried three times but still failed. If a message fails after three retries, its status will be updated to FAILED.
 We will have a job that runs monthly to delete old jobs from the database. This ensures that the database does not grow too large over time.
 
 The code architecture is designed using the Register design pattern. This ensures that we can extend to many other event types beyond birthdays without having to change the code significantly.
@@ -109,6 +114,16 @@ Content-Type: application/json
 ```
 DELETE /users/:id
 ```
+
+## Flow diagram
+
+<div align="center">
+  <img src="./flow_diagram.png" alt="Birthday Message Flow Diagram" height="30%" width="40%">
+</div>
+
+## Database diagram
+
+![Database diagram](database_diagram.png)
 
 ### Future Improvements
 

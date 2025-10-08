@@ -1,6 +1,5 @@
 import { eventQueue } from '../queues/eventQueue';
 import { EventRegistry } from '../services/EventRegistry';
-import { prisma } from '../prismaClient';
 
 eventQueue.process(async (job) => {
   const { userId, fullName, birthday, location, eventType } = job.data;

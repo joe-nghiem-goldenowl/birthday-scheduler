@@ -5,6 +5,7 @@ import { EventType } from '../types/EventType';
 import { format } from 'date-fns';
 
 schedulerQueue.process(async () => {
+  console.log('[Scheduler] Checking for upcoming birthday messages to schedule...');
   const now = new Date();
   const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
 

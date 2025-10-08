@@ -10,6 +10,9 @@ import { createBullBoard } from '@bull-board/api';
 import { eventQueue } from './queues/eventQueue';
 import { recoverScheduledJobs, scheduleCleanupJob, scheduleHourlySchedulerJob } from './scheduler';
 import { registerFailedHandler } from './jobs/failedHandlerWorkerJob';
+import './jobs/eventWorkerJob';
+import './jobs/scheduleHourlyWorkerJob';
+import './jobs/cleanupWorkerJob';
 
 const PORT = Number(process.env.PORT ?? 3000);
 
